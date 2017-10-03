@@ -1,17 +1,29 @@
-var app     =     require("express")();
-var mysql   =     require("mysql");
-var http    =     require('http').Server(app);
-var io      =     require("socket.io")(http);
+var app     =  require("express")();
+var http    =  require('http').Server(app);
+var io      =  require("socket.io")(http);
+var mongoose = require("mongoose");
 
-/* Creating POOL MySQL connection.*/
 
-var pool    =    mysql.createPool({
-      connectionLimit   :   100,
-      host              :   'localhost',
-      user              :   'root',
-      password          :   'Kihkvc90!',
-      database          :   'Status',
-      debug             :   false
+/*Creating Schema and Models for DB*/
+var Schema = mongoose.Schema;
+
+var MessageSchema = new Schema({s_text: String});
+
+var Message = mongoose.model('Message', MessageSchema)
+
+mongoose.connect(
+    process.env.MONGODB_URI || "mongodb://localhost/chat",
+    {
+      useMongoClient: true
+    }
+  );
+
+var db = mongoose.connection;
+
+db.on('error', console.error.bind(console, 'connection error:'));
+
+db.once('open', function() {
+    console.log("Mongoose Connected")
 });
 
 app.get("/",function(req,res){
@@ -31,26 +43,18 @@ io.on('connection',function(socket){
         }
       });
     });
+    socket.on('disconnect', function(){
+        console.log("A user has disconnected")
+    })
 });
 
 var add_status = function (status,callback) {
-    pool.getConnection(function(err,connection){
-        if (err) {
-          callback(false);
-          return;
-        }
-    connection.query("INSERT INTO `fbstatus` (`s_text`) VALUES ('"+status+"')",function(err,rows){
-            connection.release();
+    Message.create({s_text: status},function(err){
             if(!err) {
               callback(true);
             }
         });
-     connection.on('error', function(err) {
-              callback(false);
-              return;
-        });
-    });
-}
+    };
 
 http.listen(3000,function(){
     console.log("Listening on 3000");
